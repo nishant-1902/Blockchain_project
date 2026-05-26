@@ -1,0 +1,868 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - ICIDS{% endblock %}
+
+{% block extra_css %}
+<style>
+    .reports-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .reports-title h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0;
+    }
+    
+    .reports-title p {
+        color: #6b7280;
+        margin: 5px 0 0 0;
+    }
+    
+    .btn-generate {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+    }
+    
+    .btn-generate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+    }
+    
+    .btn-generate:active {
+        transform: translateY(0);
+    }
+    
+    .btn-generate:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .loading-spinner {
+        display: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+    }
+    
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    
+    .btn-generate.loading {
+        pointer-events: none;
+        opacity: 0.8;
+    }
+    
+    .btn-generate.loading .loading-spinner {
+        display: inline-block;
+    }
+    
+    .reports-controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        align-items: center;
+    }
+    
+    .search-box {
+        position: relative;
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .search-box input {
+        width: 100%;
+        padding: 10px 15px 10px 38px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.95rem;
+    }
+    
+    .search-box input:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .search-box i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+    }
+    
+    .filter-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-select {
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        background-color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .reports-container {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .reports-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+    }
+    
+    .reports-table thead {
+        background-color: #f3f4f6;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .reports-table th {
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+    }
+    
+    .reports-table td {
+        padding: 15px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .reports-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    
+    .reports-table tbody tr:hover {
+        background-color: #f9fafb;
+    }
+    
+    .report-type-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .report-type-daily {
+        background-color: #dbeafe;
+        color: #2563eb;
+    }
+    
+    .report-type-weekly {
+        background-color: #fef3c7;
+        color: #d97706;
+    }
+    
+    .report-type-monthly {
+        background-color: #e9d5ff;
+        color: #7c3aed;
+    }
+    
+    .report-type-custom {
+        background-color: #dcfce7;
+        color: #15803d;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .status-completed {
+        background-color: #dcfce7;
+        color: #15803d;
+    }
+    
+    .status-processing {
+        background-color: #fef3c7;
+        color: #d97706;
+    }
+    
+    .status-failed {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .download-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .download-btn {
+        background: none;
+        border: 1px solid #e5e7eb;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .download-btn:hover {
+        background-color: #f3f4f6;
+        border-color: #2563eb;
+        color: #2563eb;
+    }
+    
+    .download-btn.pdf {
+        color: #dc2626;
+    }
+    
+    .download-btn.pdf:hover {
+        background-color: #fee2e2;
+        border-color: #dc2626;
+    }
+    
+    .download-btn.csv {
+        color: #10b981;
+    }
+    
+    .download-btn.csv:hover {
+        background-color: #dcfce7;
+        border-color: #10b981;
+    }
+    
+    .delete-btn {
+        background: none;
+        border: none;
+        color: #dc2626;
+        cursor: pointer;
+        font-size: 1.1rem;
+        padding: 5px 10px;
+        transition: all 0.2s ease;
+    }
+    
+    .delete-btn:hover {
+        background-color: #fee2e2;
+        border-radius: 4px;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6b7280;
+    }
+    
+    .no-results i {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        padding: 20px;
+        background-color: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+    }
+    
+    .pagination-btn {
+        padding: 8px 12px;
+        border: 1px solid #e5e7eb;
+        background-color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 500;
+    }
+    
+    .pagination-btn:hover:not(:disabled) {
+        background-color: #2563eb;
+        color: white;
+        border-color: #2563eb;
+    }
+    
+    .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .pagination-btn.active {
+        background-color: #2563eb;
+        color: white;
+        border-color: #2563eb;
+    }
+    
+    .pagination-info {
+        color: #6b7280;
+        font-size: 0.95rem;
+    }
+    
+    /* Report Generation Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 10px;
+        max-width: 500px;
+        width: 90%;
+        animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+        from {
+            transform: translateY(50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        padding: 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .modal-header h5 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+    
+    .modal-close:hover {
+        transform: rotate(90deg);
+    }
+    
+    .modal-body {
+        padding: 25px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #374151;
+    }
+    
+    .form-input, .form-select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.95rem;
+    }
+    
+    .form-input:focus, .form-select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+        cursor: pointer;
+    }
+    
+    .checkbox-group label {
+        margin: 0;
+        cursor: pointer;
+    }
+    
+    .modal-footer {
+        padding: 15px 25px;
+        background-color: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn-modal {
+        padding: 10px 20px;
+        border-radius: 6px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-modal-primary {
+        background-color: #2563eb;
+        color: white;
+    }
+    
+    .btn-modal-primary:hover {
+        background-color: #1d4ed8;
+    }
+    
+    .btn-modal-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .btn-modal-secondary {
+        background-color: #e5e7eb;
+        color: #374151;
+    }
+    
+    .btn-modal-secondary:hover {
+        background-color: #d1d5db;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reports-header">
+    <div class="reports-title">
+        <h2><i class="bi bi-file-earmark-pdf"></i> Reports</h2>
+        <p>Generate and manage security reports</p>
+    </div>
+    <button class="btn-generate" id="generateReportBtn">
+        <span class="loading-spinner"></span>
+        <span class="btn-text"><i class="bi bi-plus-circle"></i> Generate Report</span>
+    </button>
+</div>
+
+<!-- Filters -->
+<div class="reports-controls">
+    <div class="search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" id="searchInput" placeholder="Search reports..." />
+    </div>
+    <div class="filter-group">
+        <select id="typeFilter" class="filter-select">
+            <option value="">All Types</option>
+            <option value="Daily">Daily</option>
+            <option value="Weekly">Weekly</option>
+            <option value="Monthly">Monthly</option>
+            <option value="Custom">Custom</option>
+        </select>
+        <select id="statusFilter" class="filter-select">
+            <option value="">All Statuses</option>
+            <option value="Completed">Completed</option>
+            <option value="Processing">Processing</option>
+            <option value="Failed">Failed</option>
+        </select>
+    </div>
+</div>
+
+<!-- Reports Table -->
+<div class="reports-container">
+    <table class="reports-table">
+        <thead>
+            <tr>
+                <th>Report Name</th>
+                <th>Type</th>
+                <th>Generated</th>
+                <th>Status</th>
+                <th>Size</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="reportsTableBody">
+            <tr>
+                <td colspan="6" class="no-results">
+                    <i class="bi bi-inbox"></i>
+                    <p>Loading reports...</p>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+<div class="pagination">
+    <button class="pagination-btn" id="prevBtn" disabled>← Previous</button>
+    <span class="pagination-info"><span id="pageInfo">Page 1</span></span>
+    <button class="pagination-btn" id="nextBtn">Next →</button>
+</div>
+
+<!-- Generate Report Modal -->
+<div class="modal" id="generateModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5><i class="bi bi-file-earmark-plus"></i> Generate Report</h5>
+            <button class="modal-close" onclick="closeGenerateModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="generateReportForm">
+                <div class="form-group">
+                    <label class="form-label">Report Name</label>
+                    <input type="text" class="form-input" id="reportName" placeholder="e.g., Security Audit 2026-05-26" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Report Type</label>
+                    <select class="form-select" id="reportType" required>
+                        <option value="">Select type...</option>
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Custom">Custom</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Date Range</label>
+                    <input type="date" class="form-input" id="startDate" required>
+                    <small style="color: #6b7280;">From</small>
+                </div>
+                
+                <div class="form-group">
+                    <input type="date" class="form-input" id="endDate" required>
+                    <small style="color: #6b7280;">To</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Include Sections</label>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="includeAlerts" name="includeAlerts" checked>
+                        <label for="includeAlerts">Alerts & Incidents</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="includeNetwork" name="includeNetwork" checked>
+                        <label for="includeNetwork">Network Statistics</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="includeThreats" name="includeThreats" checked>
+                        <label for="includeThreats">Threat Analysis</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="includeRecommendations" name="includeRecommendations" checked>
+                        <label for="includeRecommendations">Recommendations</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Export Format</label>
+                    <select class="form-select" id="exportFormat" required>
+                        <option value="">Select format...</option>
+                        <option value="PDF">PDF</option>
+                        <option value="CSV">CSV</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-modal btn-modal-secondary" onclick="closeGenerateModal()">Cancel</button>
+            <button class="btn-modal btn-modal-primary" id="submitGenerateBtn">Generate</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = 1;
+    let totalPages = 1;
+    let currentFilters = {
+        search: '',
+        type: '',
+        status: ''
+    };
+
+    // Load reports
+    async function loadReports() {
+        try {
+            const params = new URLSearchParams({
+                page: currentPage,
+                search: currentFilters.search,
+                type: currentFilters.type,
+                status: currentFilters.status
+            });
+
+            const response = await fetch(`/api/reports?${params}`);
+            const data = await response.json();
+
+            if (data.reports && data.reports.length > 0) {
+                renderReports(data.reports);
+                totalPages = data.totalPages || 1;
+                updatePagination();
+            } else {
+                document.getElementById('reportsTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="no-results">
+                            <i class="bi bi-inbox"></i>
+                            <p>No reports found</p>
+                        </td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading reports:', error);
+        }
+    }
+
+    function renderReports(reports) {
+        const tbody = document.getElementById('reportsTableBody');
+        tbody.innerHTML = reports.map(report => `
+            <tr>
+                <td><strong>${report.name}</strong></td>
+                <td>
+                    <span class="report-type-badge report-type-${report.type.toLowerCase()}">
+                        ${report.type}
+                    </span>
+                </td>
+                <td>${new Date(report.generatedAt).toLocaleString()}</td>
+                <td>
+                    <span class="status-badge status-${report.status.toLowerCase()}">
+                        ${report.status}
+                    </span>
+                </td>
+                <td>${formatFileSize(report.size)}</td>
+                <td>
+                    <div class="download-actions">
+                        ${report.status === 'Completed' ? `
+                            <button class="download-btn pdf" title="Download as PDF" onclick="downloadReport('${report.id}', 'pdf')">
+                                <i class="bi bi-filetype-pdf"></i> PDF
+                            </button>
+                            <button class="download-btn csv" title="Download as CSV" onclick="downloadReport('${report.id}', 'csv')">
+                                <i class="bi bi-filetype-csv"></i> CSV
+                            </button>
+                        ` : ''}
+                        <button class="delete-btn" title="Delete" onclick="deleteReport('${report.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function updatePagination() {
+        document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+        document.getElementById('prevBtn').disabled = currentPage === 1;
+        document.getElementById('nextBtn').disabled = currentPage === totalPages;
+    }
+
+    // Filter handlers
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        currentFilters.search = e.target.value;
+        currentPage = 1;
+        loadReports();
+    });
+
+    document.getElementById('typeFilter').addEventListener('change', (e) => {
+        currentFilters.type = e.target.value;
+        currentPage = 1;
+        loadReports();
+    });
+
+    document.getElementById('statusFilter').addEventListener('change', (e) => {
+        currentFilters.status = e.target.value;
+        currentPage = 1;
+        loadReports();
+    });
+
+    // Pagination handlers
+    document.getElementById('prevBtn').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            loadReports();
+            window.scrollTo(0, 0);
+        }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            loadReports();
+            window.scrollTo(0, 0);
+        }
+    });
+
+    // Generate report modal
+    document.getElementById('generateReportBtn').addEventListener('click', () => {
+        openGenerateModal();
+    });
+
+    function openGenerateModal() {
+        document.getElementById('generateModal').classList.add('show');
+    }
+
+    function closeGenerateModal() {
+        document.getElementById('generateModal').classList.remove('show');
+        document.getElementById('generateReportForm').reset();
+    }
+
+    document.getElementById('submitGenerateBtn').addEventListener('click', async () => {
+        const form = document.getElementById('generateReportForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const btn = document.getElementById('submitGenerateBtn');
+        btn.disabled = true;
+
+        try {
+            const response = await fetch('/api/reports/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: document.getElementById('reportName').value,
+                    type: document.getElementById('reportType').value,
+                    startDate: document.getElementById('startDate').value,
+                    endDate: document.getElementById('endDate').value,
+                    sections: {
+                        alerts: document.getElementById('includeAlerts').checked,
+                        network: document.getElementById('includeNetwork').checked,
+                        threats: document.getElementById('includeThreats').checked,
+                        recommendations: document.getElementById('includeRecommendations').checked
+                    },
+                    format: document.getElementById('exportFormat').value
+                })
+            });
+
+            if (response.ok) {
+                closeGenerateModal();
+                currentPage = 1;
+                loadReports();
+            }
+        } catch (error) {
+            console.error('Error generating report:', error);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    async function downloadReport(reportId, format) {
+        try {
+            const response = await fetch(`/api/reports/${reportId}/download?format=${format}`);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `report-${reportId}.${format.toLowerCase()}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Error downloading report:', error);
+        }
+    }
+
+    async function deleteReport(reportId) {
+        if (confirm('Are you sure you want to delete this report?')) {
+            try {
+                const response = await fetch(`/api/reports/${reportId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    loadReports();
+                }
+            } catch (error) {
+                console.error('Error deleting report:', error);
+            }
+        }
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('generateModal').addEventListener('click', (e) => {
+        if (e.target.id === 'generateModal') {
+            closeGenerateModal();
+        }
+    });
+
+    // Set date defaults
+    const today = new Date();
+    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    document.getElementById('startDate').valueAsDate = sevenDaysAgo;
+    document.getElementById('endDate').valueAsDate = today;
+
+    // Initialize
+    loadReports();
+</script>
+{% endblock %}
